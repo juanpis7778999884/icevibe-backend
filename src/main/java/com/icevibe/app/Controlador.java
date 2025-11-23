@@ -23,6 +23,11 @@ public class Controlador {
     @Autowired
     private RestTemplate restTemplate;
     
+    // ==================== INYECCIÓN DE DEPENDENCIAS ====================
+    
+    @Autowired
+    private ConexionBD conexionBD;
+    
     // ==================== HEALTH CHECK ====================
     
     @GetMapping("/health")
@@ -31,7 +36,7 @@ public class Controlador {
         response.put("status", "OK");
         response.put("message", "Ice Vibe POS Backend funcionando correctamente");
         response.put("timestamp", LocalDateTime.now().toString());
-        response.put("database", ConexionBD.verificarConexion() ? "Conectada" : "Desconectada");
+        response.put("database", conexionBD.verificarConexion() ? "Conectada" : "Desconectada");
         return response;
     }
     
@@ -44,7 +49,7 @@ public class Controlador {
         String codigo = credenciales.get("codigo");
         String password = credenciales.get("password");
         
-        try (Connection conn = ConexionBD.obtenerConexion()) {
+        try (Connection conn = conexionBD.obtenerConexion()) {
             String sql = "SELECT * FROM usuarios WHERE codigo = ? AND password = ? AND activo = true";
             PreparedStatement stmt = conn.prepareStatement(sql);
             stmt.setString(1, codigo);
@@ -82,7 +87,7 @@ public class Controlador {
     public List<Map<String, Object>> obtenerProductos() {
         List<Map<String, Object>> productos = new ArrayList<>();
         
-        try (Connection conn = ConexionBD.obtenerConexion()) {
+        try (Connection conn = conexionBD.obtenerConexion()) {
             String sql = "SELECT * FROM productos ORDER BY categoria, nombre";
             Statement stmt = conn.createStatement();
             ResultSet rs = stmt.executeQuery(sql);
@@ -113,7 +118,7 @@ public class Controlador {
     public List<Map<String, Object>> obtenerProductosActivos() {
         List<Map<String, Object>> productos = new ArrayList<>();
         
-        try (Connection conn = ConexionBD.obtenerConexion()) {
+        try (Connection conn = conexionBD.obtenerConexion()) {
             String sql = "SELECT * FROM productos WHERE activo = true ORDER BY categoria, nombre";
             Statement stmt = conn.createStatement();
             ResultSet rs = stmt.executeQuery(sql);
@@ -144,7 +149,7 @@ public class Controlador {
     public Map<String, Object> crearProducto(@RequestBody Map<String, Object> productoData) {
         Map<String, Object> response = new HashMap<>();
         
-        try (Connection conn = ConexionBD.obtenerConexion()) {
+        try (Connection conn = conexionBD.obtenerConexion()) {
             String sql = "INSERT INTO productos (codigo, nombre, descripcion, categoria, precio, stock, stock_minimo, activo) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
             
@@ -178,7 +183,7 @@ public class Controlador {
     public Map<String, Object> actualizarProducto(@PathVariable Long id, @RequestBody Map<String, Object> productoData) {
         Map<String, Object> response = new HashMap<>();
         
-        try (Connection conn = ConexionBD.obtenerConexion()) {
+        try (Connection conn = conexionBD.obtenerConexion()) {
             String sql = "UPDATE productos SET nombre = ?, descripcion = ?, categoria = ?, " +
                         "precio = ?, stock = ?, stock_minimo = ?, activo = ? WHERE id = ?";
             
@@ -214,7 +219,7 @@ public class Controlador {
     public Map<String, Object> eliminarProducto(@PathVariable Long id) {
         Map<String, Object> response = new HashMap<>();
         
-        try (Connection conn = ConexionBD.obtenerConexion()) {
+        try (Connection conn = conexionBD.obtenerConexion()) {
             // Soft delete - solo marcar como inactivo
             String sql = "UPDATE productos SET activo = false WHERE id = ?";
             PreparedStatement stmt = conn.prepareStatement(sql);
@@ -244,7 +249,7 @@ public class Controlador {
     public List<Map<String, Object>> obtenerUsuarios() {
         List<Map<String, Object>> usuarios = new ArrayList<>();
         
-        try (Connection conn = ConexionBD.obtenerConexion()) {
+        try (Connection conn = conexionBD.obtenerConexion()) {
             String sql = "SELECT id, codigo, nombre, email, rol, activo, fecha_creacion FROM usuarios ORDER BY nombre";
             Statement stmt = conn.createStatement();
             ResultSet rs = stmt.executeQuery(sql);
@@ -273,7 +278,7 @@ public class Controlador {
     public Map<String, Object> crearUsuario(@RequestBody Map<String, Object> usuarioData) {
         Map<String, Object> response = new HashMap<>();
         
-        try (Connection conn = ConexionBD.obtenerConexion()) {
+        try (Connection conn = conexionBD.obtenerConexion()) {
             String sql = "INSERT INTO usuarios (codigo, nombre, email, password, rol, activo) " +
                         "VALUES (?, ?, ?, ?, ?, ?) RETURNING id";
             
@@ -304,15 +309,31 @@ public class Controlador {
     public Map<String, Object> actualizarUsuario(@PathVariable Long id, @RequestBody Map<String, Object> usuarioData) {
         Map<String, Object> response = new HashMap<>();
         
-        try (Connection conn = ConexionBD.obtenerConexion()) {
-            String sql = "UPDATE usuarios SET nombre = ?, email = ?, rol = ?, activo = ? WHERE id = ?";
+        try (Connection conn = conexionBD.obtenerConexion()) {
+            // Verificar si se incluye password para actualizar
+            boolean actualizarPassword = usuarioData.containsKey("password") && usuarioData.get("password") != null;
             
-            PreparedStatement stmt = conn.prepareStatement(sql);
-            stmt.setString(1, usuarioData.get("nombre").toString());
-            stmt.setString(2, usuarioData.get("email").toString());
-            stmt.setString(3, usuarioData.get("rol").toString());
-            stmt.setBoolean(4, Boolean.parseBoolean(usuarioData.get("activo").toString()));
-            stmt.setLong(5, id);
+            String sql;
+            PreparedStatement stmt;
+            
+            if (actualizarPassword) {
+                sql = "UPDATE usuarios SET nombre = ?, email = ?, rol = ?, activo = ?, password = ? WHERE id = ?";
+                stmt = conn.prepareStatement(sql);
+                stmt.setString(1, usuarioData.get("nombre").toString());
+                stmt.setString(2, usuarioData.get("email").toString());
+                stmt.setString(3, usuarioData.get("rol").toString());
+                stmt.setBoolean(4, Boolean.parseBoolean(usuarioData.get("activo").toString()));
+                stmt.setString(5, usuarioData.get("password").toString());
+                stmt.setLong(6, id);
+            } else {
+                sql = "UPDATE usuarios SET nombre = ?, email = ?, rol = ?, activo = ? WHERE id = ?";
+                stmt = conn.prepareStatement(sql);
+                stmt.setString(1, usuarioData.get("nombre").toString());
+                stmt.setString(2, usuarioData.get("email").toString());
+                stmt.setString(3, usuarioData.get("rol").toString());
+                stmt.setBoolean(4, Boolean.parseBoolean(usuarioData.get("activo").toString()));
+                stmt.setLong(5, id);
+            }
             
             int rowsAffected = stmt.executeUpdate();
             
@@ -336,7 +357,7 @@ public class Controlador {
     public Map<String, Object> eliminarUsuario(@PathVariable Long id) {
         Map<String, Object> response = new HashMap<>();
         
-        try (Connection conn = ConexionBD.obtenerConexion()) {
+        try (Connection conn = conexionBD.obtenerConexion()) {
             String sql = "UPDATE usuarios SET activo = false WHERE id = ?";
             PreparedStatement stmt = conn.prepareStatement(sql);
             stmt.setLong(1, id);
@@ -367,7 +388,7 @@ public class Controlador {
         Connection conn = null;
         
         try {
-            conn = ConexionBD.obtenerConexion();
+            conn = conexionBD.obtenerConexion();
             conn.setAutoCommit(false);
             
             String numeroVenta = "V-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
@@ -397,8 +418,7 @@ public class Controlador {
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> detalles = (List<Map<String, Object>>) ventaData.get("detalles");
             
-            String sqlDetalle = "INSERT INTO detalle_ventas (venta_id, producto_id, cantidad, precio_unitario, subtotal) " +
-                               "VALUES (?, ?, ?, ?, ?)";
+            String sqlDetalle = "INSERT INTO detalle_ventas (venta_id, producto_id, cantidad, precio_unitario, subtotal) VALUES (?, ?, ?, ?, ?)";
             PreparedStatement stmtDetalle = conn.prepareStatement(sqlDetalle);
             
             for (Map<String, Object> detalle : detalles) {
@@ -446,7 +466,7 @@ public class Controlador {
     public List<Map<String, Object>> obtenerVentas() {
         List<Map<String, Object>> ventas = new ArrayList<>();
         
-        try (Connection conn = ConexionBD.obtenerConexion()) {
+        try (Connection conn = conexionBD.obtenerConexion()) {
             String sql = "SELECT v.*, u.nombre as vendedor_nombre FROM ventas v " +
                         "LEFT JOIN usuarios u ON v.usuario_id = u.id " +
                         "ORDER BY v.fecha_venta DESC LIMIT 100";
@@ -479,7 +499,7 @@ public class Controlador {
     public Map<String, Object> obtenerVenta(@PathVariable Long id) {
         Map<String, Object> response = new HashMap<>();
         
-        try (Connection conn = ConexionBD.obtenerConexion()) {
+        try (Connection conn = conexionBD.obtenerConexion()) {
             String sqlVenta = "SELECT * FROM ventas WHERE id = ?";
             PreparedStatement stmtVenta = conn.prepareStatement(sqlVenta);
             stmtVenta.setLong(1, id);
@@ -531,6 +551,131 @@ public class Controlador {
         return response;
     }
     
+    @PutMapping("/ventas/{id}")
+    public Map<String, Object> actualizarVenta(@PathVariable Long id, @RequestBody Map<String, Object> ventaData) {
+        Map<String, Object> response = new HashMap<>();
+        Connection conn = null;
+        
+        try {
+            conn = conexionBD.obtenerConexion();
+            conn.setAutoCommit(false);
+            
+            // Actualizar la venta
+            String sqlVenta = "UPDATE ventas SET subtotal = ?, impuestos = ?, total = ? WHERE id = ?";
+            PreparedStatement stmtVenta = conn.prepareStatement(sqlVenta);
+            stmtVenta.setBigDecimal(1, new BigDecimal(ventaData.get("subtotal").toString()));
+            stmtVenta.setBigDecimal(2, new BigDecimal(ventaData.get("impuestos").toString()));
+            stmtVenta.setBigDecimal(3, new BigDecimal(ventaData.get("total").toString()));
+            stmtVenta.setLong(4, id);
+            stmtVenta.executeUpdate();
+            
+            // Eliminar detalles anteriores
+            String sqlDeleteDetalles = "DELETE FROM detalle_ventas WHERE venta_id = ?";
+            PreparedStatement stmtDelete = conn.prepareStatement(sqlDeleteDetalles);
+            stmtDelete.setLong(1, id);
+            stmtDelete.executeUpdate();
+            
+            // Insertar nuevos detalles
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> detalles = (List<Map<String, Object>>) ventaData.get("detalles");
+            
+            String sqlDetalle = "INSERT INTO detalle_ventas (venta_id, producto_id, cantidad, precio_unitario, subtotal) VALUES (?, ?, ?, ?, ?)";
+            PreparedStatement stmtDetalle = conn.prepareStatement(sqlDetalle);
+            
+            for (Map<String, Object> detalle : detalles) {
+                stmtDetalle.setLong(1, id);
+                stmtDetalle.setLong(2, Long.parseLong(detalle.get("productoId").toString()));
+                stmtDetalle.setInt(3, Integer.parseInt(detalle.get("cantidad").toString()));
+                stmtDetalle.setBigDecimal(4, new BigDecimal(detalle.get("precio").toString()));
+                stmtDetalle.setBigDecimal(5, new BigDecimal(detalle.get("subtotal").toString()));
+                stmtDetalle.addBatch();
+            }
+            
+            stmtDetalle.executeBatch();
+            conn.commit();
+            
+            response.put("success", true);
+            response.put("message", "Venta actualizada exitosamente");
+            
+        } catch (Exception e) {
+            if (conn != null) {
+                try {
+                    conn.rollback();
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                }
+            }
+            response.put("success", false);
+            response.put("message", "Error al actualizar venta: " + e.getMessage());
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        
+        return response;
+    }
+    
+    @DeleteMapping("/ventas/{id}")
+    public Map<String, Object> eliminarVenta(@PathVariable Long id) {
+        Map<String, Object> response = new HashMap<>();
+        Connection conn = null;
+        
+        try {
+            conn = conexionBD.obtenerConexion();
+            conn.setAutoCommit(false);
+            
+            // Eliminar detalles primero
+            String sqlDeleteDetalles = "DELETE FROM detalle_ventas WHERE venta_id = ?";
+            PreparedStatement stmtDetalles = conn.prepareStatement(sqlDeleteDetalles);
+            stmtDetalles.setLong(1, id);
+            stmtDetalles.executeUpdate();
+            
+            // Eliminar venta
+            String sqlDeleteVenta = "DELETE FROM ventas WHERE id = ?";
+            PreparedStatement stmtVenta = conn.prepareStatement(sqlDeleteVenta);
+            stmtVenta.setLong(1, id);
+            int rowsAffected = stmtVenta.executeUpdate();
+            
+            if (rowsAffected > 0) {
+                conn.commit();
+                response.put("success", true);
+                response.put("message", "Venta eliminada exitosamente (reverso)");
+            } else {
+                conn.rollback();
+                response.put("success", false);
+                response.put("message", "Venta no encontrada");
+            }
+            
+        } catch (Exception e) {
+            if (conn != null) {
+                try {
+                    conn.rollback();
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                }
+            }
+            response.put("success", false);
+            response.put("message", "Error al eliminar venta: " + e.getMessage());
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        
+        return response;
+    }
+    
     // ==================== WHATSAPP ====================
     
     @PostMapping("/whatsapp/enviar")
@@ -568,7 +713,7 @@ public class Controlador {
     public Map<String, Object> obtenerEstadisticas() {
         Map<String, Object> stats = new HashMap<>();
         
-        try (Connection conn = ConexionBD.obtenerConexion()) {
+        try (Connection conn = conexionBD.obtenerConexion()) {
             // Total de ventas del día
             String sqlVentasHoy = "SELECT COUNT(*) as total, COALESCE(SUM(total), 0) as monto " +
                                  "FROM ventas WHERE DATE(fecha_venta) = CURRENT_DATE";
