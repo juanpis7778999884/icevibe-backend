@@ -429,8 +429,8 @@ public class Controlador {
             
             String numeroVenta = "V-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
             
-            String sqlVenta = "INSERT INTO ventas (numero_venta, fecha_venta, subtotal, impuestos, descuento, total, estado, observaciones, usuario_id) " +
-                             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
+            String sqlVenta = "INSERT INTO ventas (numero_venta, fecha_venta, subtotal, impuestos, descuento, total, estado, observaciones, usuario_id, numero_mesa, numero_whatsapp, nombre_cliente) " +
+                             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
             
             PreparedStatement stmtVenta = conn.prepareStatement(sqlVenta);
             stmtVenta.setString(1, numeroVenta);
@@ -444,6 +444,12 @@ public class Controlador {
             stmtVenta.setString(8, ventaData.containsKey("observaciones") ? 
                 ventaData.get("observaciones").toString() : null);
             stmtVenta.setLong(9, Long.parseLong(ventaData.get("usuarioId").toString()));
+            stmtVenta.setString(10, ventaData.containsKey("numeroMesa") ? 
+                ventaData.get("numeroMesa").toString() : null);
+            stmtVenta.setString(11, ventaData.containsKey("numeroWhatsapp") ? 
+                ventaData.get("numeroWhatsapp").toString() : null);
+            stmtVenta.setString(12, ventaData.containsKey("nombreCliente") ? 
+                ventaData.get("nombreCliente").toString() : null);
             
             ResultSet rsVenta = stmtVenta.executeQuery();
             Long ventaId = null;
@@ -520,6 +526,10 @@ public class Controlador {
                 venta.put("total", rs.getBigDecimal("total"));
                 venta.put("estado", rs.getString("estado"));
                 venta.put("vendedor", rs.getString("vendedor_nombre"));
+                venta.put("numeroMesa", rs.getString("numero_mesa"));
+                venta.put("numeroWhatsapp", rs.getString("numero_whatsapp"));
+                venta.put("nombreCliente", rs.getString("nombre_cliente"));
+                venta.put("usuarioId", rs.getLong("usuario_id"));
                 
                 ventas.add(venta);
             }
@@ -552,6 +562,10 @@ public class Controlador {
                 venta.put("total", rsVenta.getBigDecimal("total"));
                 venta.put("estado", rsVenta.getString("estado"));
                 venta.put("observaciones", rsVenta.getString("observaciones"));
+                venta.put("numeroMesa", rsVenta.getString("numero_mesa"));
+                venta.put("numeroWhatsapp", rsVenta.getString("numero_whatsapp"));
+                venta.put("nombreCliente", rsVenta.getString("nombre_cliente"));
+                venta.put("usuarioId", rsVenta.getLong("usuario_id"));
                 
                 String sqlDetalles = "SELECT dv.*, p.nombre as producto_nombre " +
                                     "FROM detalle_ventas dv " +
@@ -564,10 +578,12 @@ public class Controlador {
                 List<Map<String, Object>> detalles = new ArrayList<>();
                 while (rsDetalles.next()) {
                     Map<String, Object> detalle = new HashMap<>();
+                    detalle.put("id", rsDetalles.getLong("id"));
                     detalle.put("productoNombre", rsDetalles.getString("producto_nombre"));
                     detalle.put("cantidad", rsDetalles.getInt("cantidad"));
                     detalle.put("precioUnitario", rsDetalles.getBigDecimal("precio_unitario"));
                     detalle.put("subtotal", rsDetalles.getBigDecimal("subtotal"));
+                    detalle.put("productoId", rsDetalles.getLong("producto_id"));
                     detalles.add(detalle);
                 }
                 
@@ -596,13 +612,18 @@ public class Controlador {
             conn = conexionBD.obtenerConexion();
             conn.setAutoCommit(false);
             
-            // Actualizar la venta
-            String sqlVenta = "UPDATE ventas SET subtotal = ?, impuestos = ?, total = ? WHERE id = ?";
+            String sqlVenta = "UPDATE ventas SET subtotal = ?, impuestos = ?, total = ?, numero_mesa = ?, numero_whatsapp = ?, nombre_cliente = ? WHERE id = ?";
             PreparedStatement stmtVenta = conn.prepareStatement(sqlVenta);
             stmtVenta.setBigDecimal(1, new BigDecimal(ventaData.get("subtotal").toString()));
             stmtVenta.setBigDecimal(2, new BigDecimal(ventaData.get("impuestos").toString()));
             stmtVenta.setBigDecimal(3, new BigDecimal(ventaData.get("total").toString()));
-            stmtVenta.setLong(4, id);
+            stmtVenta.setString(4, ventaData.containsKey("numeroMesa") ? 
+                ventaData.get("numeroMesa").toString() : null);
+            stmtVenta.setString(5, ventaData.containsKey("numeroWhatsapp") ? 
+                ventaData.get("numeroWhatsapp").toString() : null);
+            stmtVenta.setString(6, ventaData.containsKey("nombreCliente") ? 
+                ventaData.get("nombreCliente").toString() : null);
+            stmtVenta.setLong(7, id);
             stmtVenta.executeUpdate();
             
             // Eliminar detalles anteriores
@@ -622,7 +643,7 @@ public class Controlador {
                 stmtDetalle.setLong(1, id);
                 stmtDetalle.setLong(2, Long.parseLong(detalle.get("productoId").toString()));
                 stmtDetalle.setInt(3, Integer.parseInt(detalle.get("cantidad").toString()));
-                stmtDetalle.setBigDecimal(4, new BigDecimal(detalle.get("precio").toString()));
+                stmtDetalle.setBigDecimal(4, new BigDecimal(detalle.get("precioUnitario").toString()));
                 stmtDetalle.setBigDecimal(5, new BigDecimal(detalle.get("subtotal").toString()));
                 stmtDetalle.addBatch();
             }
