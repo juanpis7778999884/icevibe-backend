@@ -10,18 +10,18 @@ import java.sql.SQLException;
 public class ConexionBD {
 
     @Value("${spring.datasource.url}")
-    private String URL;
+    private String url;
 
     @Value("${spring.datasource.username}")
-    private String USUARIO;
+    private String usuario;
 
     @Value("${spring.datasource.password}")
-    private String PASSWORD;
+    private String password;
 
     public Connection obtenerConexion() throws SQLException {
         try {
             Class.forName("org.postgresql.Driver");
-            return DriverManager.getConnection(URL, USUARIO, PASSWORD);
+            return DriverManager.getConnection(url, usuario, password);
         } catch (ClassNotFoundException e) {
             throw new SQLException("Driver PostgreSQL no encontrado", e);
         }
