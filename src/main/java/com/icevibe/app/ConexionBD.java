@@ -6,44 +6,38 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 /**
- * Clase para gestionar la conexión a la base de datos PostgreSQL
- * Soporta variables de entorno para deployment en Render
+ * Clase para gestionar la conexión a la base de datos PostgreSQL,
+ * compatible con entorno local y Render (producción).
  */
 @Component
 public class ConexionBD {
-    
-    // Configuración con variables de entorno para producción
-    private static final String URL = System.getenv("DATABASE_URL") != null 
-        ? System.getenv("DATABASE_URL") 
+
+    // Si Render pone la variable DATABASE_URL → la usamos
+    // Si NO existe → usa la BD local
+    private static final String URL =
+        (System.getenv("DATABASE_URL") != null && !System.getenv("DATABASE_URL").isEmpty())
+        ? System.getenv("DATABASE_URL") + "?sslmode=require"
         : "jdbc:postgresql://localhost:5432/proyectoempresa";
-    
-    private static final String USUARIO = System.getenv("DB_USER") != null 
-        ? System.getenv("DB_USER") 
+
+    private static final String USUARIO =
+        (System.getenv("DB_USER") != null && !System.getenv("DB_USER").isEmpty())
+        ? System.getenv("DB_USER")
         : "postgres";
-    
-    private static final String PASSWORD = System.getenv("DB_PASSWORD") != null 
-        ? System.getenv("DB_PASSWORD") 
+
+    private static final String PASSWORD =
+        (System.getenv("DB_PASSWORD") != null && !System.getenv("DB_PASSWORD").isEmpty())
+        ? System.getenv("DB_PASSWORD")
         : "messi777";
-    
-    /**
-     * Obtiene una conexión a la base de datos
-     * @return 
-     * @throws java.sql.SQLException
-     */
+
     public static Connection obtenerConexion() throws SQLException {
         try {
             Class.forName("org.postgresql.Driver");
-            Connection conexion = DriverManager.getConnection(URL, USUARIO, PASSWORD);
-            return conexion;
+            return DriverManager.getConnection(URL, USUARIO, PASSWORD);
         } catch (ClassNotFoundException e) {
             throw new SQLException("Driver de PostgreSQL no encontrado", e);
         }
     }
-    
-    /**
-     * Verifica si la conexión a la base de datos está funcionando
-     * @return 
-     */
+
     public static boolean verificarConexion() {
         try (Connection conn = obtenerConexion()) {
             return conn != null && !conn.isClosed();
