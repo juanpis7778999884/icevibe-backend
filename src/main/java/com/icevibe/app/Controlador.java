@@ -444,8 +444,12 @@ public class Controlador {
             stmtVenta.setString(8, ventaData.containsKey("observaciones") ? 
                 ventaData.get("observaciones").toString() : null);
             stmtVenta.setLong(9, Long.parseLong(ventaData.get("usuarioId").toString()));
-            stmtVenta.setString(10, ventaData.containsKey("numeroMesa") ? 
-                ventaData.get("numeroMesa").toString() : null);
+            if (ventaData.containsKey("numeroMesa") && ventaData.get("numeroMesa") != null) {
+    stmtVenta.setInt(10, Integer.parseInt(ventaData.get("numeroMesa").toString()));
+} else {
+    stmtVenta.setNull(10, java.sql.Types.INTEGER);
+}
+
             stmtVenta.setString(11, ventaData.containsKey("numeroWhatsapp") ? 
                 ventaData.get("numeroWhatsapp").toString() : null);
             stmtVenta.setString(12, ventaData.containsKey("nombreCliente") ? 
