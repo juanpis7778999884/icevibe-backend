@@ -7,6 +7,12 @@ COPY mvnw .
 COPY mvnw.cmd .
 COPY pom.xml .
 
+# 🔥 ARREGLA PERMISOS DEL mvnw
+RUN chmod +x mvnw
+
+# 🔥 ARREGLA FINES DE LINEA POR SI ESTÁN MAL (CRLF → LF)
+RUN sed -i 's/\r$//' mvnw
+
 RUN ./mvnw -q dependency:resolve
 
 COPY src ./src
