@@ -353,6 +353,42 @@ public class Controlador {
         return response;
     }
     
+    @PutMapping("/usuarios/{id}/cambiar-contrasena")
+    public Map<String, Object> cambiarContrasena(@PathVariable Long id, @RequestBody Map<String, String> data) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try (Connection conn = conexionBD.obtenerConexion()) {
+            String nuevaContrasena = data.get("password");
+            
+            if (nuevaContrasena == null || nuevaContrasena.trim().isEmpty()) {
+                response.put("success", false);
+                response.put("message", "La contraseña no puede estar vacía");
+                return response;
+            }
+            
+            String sql = "UPDATE usuarios SET password = ? WHERE id = ?";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, nuevaContrasena);
+            stmt.setLong(2, id);
+            
+            int rowsAffected = stmt.executeUpdate();
+            
+            if (rowsAffected > 0) {
+                response.put("success", true);
+                response.put("message", "Contraseña actualizada exitosamente");
+            } else {
+                response.put("success", false);
+                response.put("message", "Usuario no encontrado");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            response.put("success", false);
+            response.put("message", "Error al actualizar contraseña: " + e.getMessage());
+        }
+        
+        return response;
+    }
+    
     @DeleteMapping("/usuarios/{id}")
     public Map<String, Object> eliminarUsuario(@PathVariable Long id) {
         Map<String, Object> response = new HashMap<>();
